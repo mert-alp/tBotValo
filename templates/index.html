@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 60px auto;
+            padding: 30px;
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #fff;
+            margin-bottom: 30px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        label {
+            font-size: 1.1rem;
+            color: #c7c7c7;
+            margin-bottom: 10px;
+        }
+
+        input[type="number"], input[type="text"], input[type="checkbox"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            color: #e0e0e0;
+            background-color: #2e2e2e;
+            border: 1px solid #3e3e3e;
+            border-radius: 5px;
+            transition: border 0.2s ease;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+        }
+
+        input[type="number"]:focus, input[type="text"]:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        .pickr-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+        }
+
+        .color-picker {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #fff;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .hex-value {
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: #aaa;
+            text-align: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: space-between;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        button:hover {
+            background-color: #4CAF50;
+            transform: scale(1.03);
+        }
+
+        button:active {
+            transform: scale(1);
+        }
+
+        .btn-save {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .btn-config {
+            background-color: #FF9800;
+            color: white;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+
+    <!-- Include Pickr CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
+
+</head>
+<body>
+
+<div class="container">
+    <h1>Trigger Bot Settings</h1>
+    <form method="POST">
+        <!-- FPS input -->
+        <div class="field-group">
+            <label for="fps">FPS:</label>
+            <input type="number" id="fps" name="fps" value="{{ settings['fps'] }}" min="1" max="300">
+        </div>
+
+        <!-- Keybind input -->
+        <div class="field-group">
+            <label for="trigger_hotkey">Trigger Hotkey:</label>
+            <input type="text" id="trigger_hotkey" name="trigger_hotkey" value="{{ settings['trigger_hotkey'] }}">
+        </div>
+
+        <!-- Color inputs using Pickr -->
+        <div class="field-group">
+            <label>Target Colors:</label>
+            <div class="pickr-container">
+                {% for color in settings['colors'] %}
+                <div class="color-picker-target" id="color-picker-{{ loop.index }}"></div>
+                <input type="hidden" name="colors" id="color-input-{{ loop.index }}" value="{{ color }}">
+                <div class="hex-value" id="hex-value-{{ loop.index }}">{{ color | upper }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Blacklisted Colors input -->
+        <div class="field-group">
+            <label>Blacklisted Colors:</label>
+            <div class="pickr-container">
+                {% for color in settings['blacklisted_colors'] %}
+                <div class="color-picker-blacklist" id="blacklist-color-picker-{{ loop.index }}"></div>
+                <input type="hidden" name="blacklisted_colors" id="blacklist-color-input-{{ loop.index }}" value="{{ color }}">
+                <div class="hex-value" id="blacklist-hex-value-{{ loop.index }}">{{ color | upper }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Color tolerance -->
+        <div class="field-group">
+            <label for="color_tolerance">Color Tolerance:</label>
+            <input type="number" id="color_tolerance" name="color_tolerance" value="{{ settings['color_tolerance'] }}" min="0" max="100">
+        </div>
+
+        <!-- Toggle bot active -->
+        <div class="field-group">
+            <label for="bot_active">Enable Bot</label>
+            <input type="checkbox" id="bot_active" name="bot_active" {% if settings['bot_active'] %}checked{% endif %}>
+        </div>
+
+        <!-- Buttons for saving settings -->
+        <div class="btn-group">
+            <button class="btn-config" type="submit" name="save">Save Settings</button>
+        </div>
+    </form>
+</div>
+
+<footer>
+    <p>Trigger Bot &copy; 2024 - All Rights Reserved</p>
+</footer>
+
+<!-- Script for Target Colors -->
+<script>
+    window.addEventListener('DOMContentLoaded', (event) => {
+        const colors = {{ settings['colors'] | tojson }};
+        const colorPickers = document.querySelectorAll('.color-picker-target');
+
+        // Loop through each color picker and initialize Pickr
+        colorPickers.forEach((colorPicker, index) => {
+            const pickr = Pickr.create({
+                el: colorPicker,
+                theme: 'classic', // 'classic' theme
+                default: colors[index] || '#FFFFFF', // Set the default color with fallback
+                components: {
+                    preview: true,
+                    opacity: true,
+                    hue: true,
+                    interaction: {
+                        hex: true, // Show hex by default
+                        input: true,
+                        clear: true,
+                        save: true
+                    }
+                }
+            });
+
+            const hexValue = document.getElementById(`hex-value-${index + 1}`);
+            const colorInput = document.getElementById(`color-input-${index + 1}`);
+
+            // Update hex value when color is changed
+            pickr.on('save', (color) => {
+                const hex = color.toHEXA().toString().toUpperCase();
+                hexValue.innerText = hex; // Update the hex value display
+                colorInput.value = hex;   // Set the hidden input value
+                pickr.hide(); // Hide the picker after selecting
+            });
+        });
+    });
+</script>
+
+<!-- Script for Blacklisted Colors -->
+<script>
+    window.addEventListener('DOMContentLoaded', (event) => {
+        const blacklistColors = {{ settings['blacklisted_colors'] | tojson }};
+        const blacklistColorPickers = document.querySelectorAll('.color-picker-blacklist');
+
+        blacklistColorPickers.forEach((colorPicker, index) => {
+            const pickr = Pickr.create({
+                el: colorPicker,
+                theme: 'classic', 
+                default: blacklistColors[index] || '#FFFFFF',  // Fallback to white if color undefined
+                components: {
+                    preview: true,
+                    opacity: true,
+                    hue: true,
+                    interaction: {
+                        hex: true,
+                        input: true,
+                        clear: true,
+                        save: true
+                    }
+                }
+            });
+
+            const hexValue = document.getElementById(`blacklist-hex-value-${index + 1}`);
+            const colorInput = document.getElementById(`blacklist-color-input-${index + 1}`);
+
+            pickr.on('save', (color) => {
+                const hex = color.toHEXA().toString().toUpperCase();
+                hexValue.innerText = hex;
+                colorInput.value = hex;
+                pickr.hide();
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
